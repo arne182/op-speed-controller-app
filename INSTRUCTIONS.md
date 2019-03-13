@@ -23,18 +23,23 @@
     
     ```python
     live_speed_file = '/data/live_speed_file'
-    
+
     if cp.vl["PCM_CRUISE_2"]['SET_SPEED'] != self.speed_limit_prev:
       self.speed_limit_prev = cp.vl["PCM_CRUISE_2"]['SET_SPEED']
       self.v_cruise_pcm = cp.vl["PCM_CRUISE_2"]['SET_SPEED']
       with open(live_speed_file, 'w') as f:
         f.write(str(self.speed_limit_prev))
     else:
-      speed = open(live_speed_file, "r")
-      self.v_cruise_pcm = float(speed.read())
+      try:
+        speed = open(live_speed_file, "r")
+        self.v_cruise_pcm = float(speed.read())
+      except: #if file doesn't exist
+        self.v_cruise_pcm = cp.vl["PCM_CRUISE_2"]['SET_SPEED']
       ```
       
-      Ensure the formatting is correct when you paste it, there should be no extra or missing indents. Then you simply `put` the file back with `sftp` and `reboot` with `ssh`. The full code section should look like this:
+      Finally, insert this line in the `CarState` class's `__init__` function: `self.speed_limit_prev = 0`
+      
+      Ensure the formatting is correct when you paste it all, there should be no extra or missing indents (you might have to replace tabs with spaces to match openpilot's formatting). Then you simply `put` the file back with `sftp` and `reboot` with `ssh`. The full code section should look like this:
       
       ```python
         self.steer_torque_motor = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_EPS']

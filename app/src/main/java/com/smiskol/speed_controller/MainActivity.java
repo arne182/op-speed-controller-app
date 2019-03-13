@@ -67,6 +67,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.Properties;
 
 public class MainActivity extends AppCompatActivity {
@@ -305,36 +306,15 @@ public class MainActivity extends AppCompatActivity {
         if (alertTitle.getParent() != null) {
             ((ViewGroup) alertTitle.getParent()).removeView(alertTitle);
         }
-        alertTitle.setText("SAFETY WARNING!!");
+        alertTitle.setText("Warning");
         alertTitle.setVisibility(View.VISIBLE);
         alertTitle.setTypeface(semibold);
         AlertDialog successDialog = new AlertDialog.Builder(MainActivity.this).setCustomTitle(alertTitle)
-                .setMessage("Please note that it's best to initially set your cruise control to a high speed, then alter it with this app to your desired speed. Setting it too low, then increasing it with this app will cause unwanted cruise control behavior. Proceed at your own risk.")
-                .setPositiveButton("Sounds scary...", new DialogInterface.OnClickListener() {
+                .setMessage("Please note that it's best to initially set your cruise control to a high speed, then alter it with this app to your desired, lower, speed. Setting it low, then increasing it with this app will cause unwanted cruise control behavior. Proceed at your own risk.\nYou can always tap the cruise control stock up or down to reset the system if anything goes wrong!")
+                .setPositiveButton("Got it!", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        if (alertTitle.getParent() != null) {
-                            ((ViewGroup) alertTitle.getParent()).removeView(alertTitle);
-                        }
-                        alertTitle.setText("Don't worry!");
-                        alertTitle.setVisibility(View.VISIBLE);
-                        alertTitle.setTypeface(semibold);
-                        AlertDialog successDialog = new AlertDialog.Builder(MainActivity.this).setCustomTitle(alertTitle)
-                                .setMessage("You won't die or anything. It's just a bug I'm working out. You can always reset the system by tapping up or down on the cruise control stalk if anything goes wrong.")
-                                .setPositiveButton("Will you go away now?", new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        makeSnackbar("Absolutely " + ("\ud83d\udc4d"));
-                                        preferences.edit().putBoolean("warning", true).apply();
-                                    }
-                                })
-                                .setCancelable(false)
-                                .show();
-
-                        TextView tmpMessage = successDialog.getWindow().findViewById(android.R.id.message);
-                        Button tmpButton = successDialog.getWindow().findViewById(android.R.id.button1);
-                        tmpMessage.setTypeface(regular);
-                        tmpButton.setTypeface(semibold);
+                        preferences.edit().putBoolean("warning", true).apply();
                     }
                 })
                 .setCancelable(false)
@@ -355,7 +335,6 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Boolean result) {
             if (result) {
                 final Intent listenerService = new Intent(MainActivity.this, ListenerService.class);
-                new ListenerService().getActivityContext(MainActivity.this);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(listenerService);
                 } else {
@@ -422,18 +401,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public class RunSpeedChange extends AsyncTask<Integer, Void, Boolean> {
+    public class RunSpeedChange extends AsyncTask<Integer, Void, String[]> {
 
-        protected Boolean doInBackground(Integer... speedChange) {
-            return new SSHClass().runSpeedChange(MainActivity.this, ipEditText.getText().toString(), speedChange[0].intValue());
+        protected String[] doInBackground(Integer... speedChange) {
+            Boolean result = new SSHClass().runSpeedChange(MainActivity.this, ipEditText.getText().toString(), speedChange[0].intValue());
+            return new String[]{result.toString(), String.valueOf(speedChange[0].intValue())};
         }
 
-        protected void onPostExecute(Boolean result) {
-            if (!result) {
+        protected void onPostExecute(String... result) {
+            if (result[0].equals("false")) {
                 listenSwitch.setChecked(false);
                 makeSnackbar("Couldn't connect to EON! Perhaps wrong IP?");
             } else {
-                makeSnackbar("Successful!");
+                if (result[1].equals("8")) {
+                    makeSnackbar("Increased speed!");
+                }else{
+                    makeSnackbar("Decreased speed!");
+                }
             }
         }
     }
@@ -707,10 +691,14 @@ public class MainActivity extends AppCompatActivity {
                         "live_speed_file = '/data/live_speed_file'\n" +
                         "\n" +
                         "def write_file(a):\n" +
-                        "    speed = open(live_speed_file, \"r\")\n" +
-                        "    modified_speed=float(speed.read())+a\n" +
-                        "    with open(live_speed_file, 'w') as f:\n" +
-                        "        f.write(str(modified_speed))\n" +
+                        "    try:\n" +
+                        "        with open(live_speed_file, 'r') as speed:\n" +
+                        "            modified_speed=float(speed.read())+a\n" +
+                        "        with open(live_speed_file, 'w') as speed:\n" +
+                        "            speed.write(str(modified_speed))\n" +
+                        "    except: #in case file doesn't exist or is empty\n" +
+                        "        with open(live_speed_file, 'w') as speed:\n" +
+                        "            speed.write(str(28.0))\n" +
                         "\n" +
                         "if __name__ == \"__main__\":\n" +
                         "    write_file(int(sys.argv[1]))";
